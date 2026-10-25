@@ -1,0 +1,160 @@
+# ===================================================================================
+# Project: VoiceRAG
+# File: src/config.py
+# Description: Centralized configuration management
+# Author: LALAN KUMAR
+# Created: [02-03-2026]
+# Updated: [05-03-2026]
+# LAST MODIFIED BY: LALAN KUMAR  [https://github.com/kumar8074]
+# Version: 1.0.0
+# ===================================================================================
+
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+from langchain_openai import ChatOpenAI
+from huggingface_hub import AsyncInferenceClient
+from dotenv import load_dotenv
+load_dotenv()
+
+# Set Sarvam API Key
+if sarvam_key := os.getenv("SARVAM_API_KEY"):
+    os.environ["OPENAI_API_KEY"] = sarvam_key
+else:
+    os.environ.setdefault("OPENAI_API_KEY", "")
+
+if hf_token := os.getenv("HF_TOKEN"):
+    os.environ["HF_TOKEN"] = hf_token
+
+for var_name, default_val in [
+    ("QDRANT_HOST", "localhost"),
+    ("QDRANT_PORT", "6333"),
+    ("POSTGRES_HOST", "localhost"),
+    ("POSTGRES_PORT", "5432"),
+    ("POSTGRES_DB", "voicerag_db"),
+    ("POSTGRES_USER", "voicerag_user"),
+    ("POSTGRES_PASSWORD", "voicerag"),
+]:
+    val = os.getenv(var_name, default_val)
+    if val is not None:
+        os.environ[var_name] = str(val)
+
+os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "false")
+os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY", "")
+os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "voicerag")
+
+class ChunkerConfig(BaseSettings):
+    chunk_size: int = Field(default=800, description="The size of each text chunk.")
+    chunk_overlap: int = Field(default=100, description="The number of overlapping characters between chunks.")
+    
+    model_config = SettingsConfigDict(
+        env_prefix="CHUNKER_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+
+class LLMConfig(BaseSettings):
+    model: str = Field(default="sarvam-m", description="The name of the LLM model to use.")
+    streaming: bool = Field(default=True, description="stream responses.")
+    openai_api_base: str = Field(default="https://api.sarvam.ai/v1", description="Base URL for the Open API.")
+    max_tokens: int = Field(default=2048, ge=1, le=8192)
+    
+    model_config = SettingsConfigDict(
+        env_prefix="LLM_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+class EmbeddingConfig(BaseSettings):
+    model: str = Field(default="intfloat/multilingual-e5-large", description="The name of the embedding model to use.")
+    provider: str = Field(default="hf-inference", description="The provider for the embedding model (e.g., 'hf-inference', 'openai').")
+    embedding_dim: int = Field(default=1024, description="The dimensionality of the embedding vectors.")
+    batch_size: int = Field(default=32, description="The batch size for embedding generation.")
+    
+    model_config = SettingsConfigDict(
+        env_prefix="EMBEDDING_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+       
+class QdrantConfig(BaseSettings):
+    """Qdrant configuration"""
+    host: str = Field(default="localhost")
+    port: int = Field(default=6333)
+    collection_name: str = Field(default="rag-collection")
+    grpc_port: int | None = Field(default=None)
+    prefer_grpc: bool = Field(default=False)
+    timeout: int = Field(default=10)
+    
+    model_config=SettingsConfigDict(
+        env_prefix="QDRANT_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+class PostgresConfig(BaseSettings):
+    """Postgres Configuration"""
+    host: str = Field(default="localhost")
+    port: int = Field(default=5432)
+    db: str = Field(default="voicerag_db")
+    user: str = Field(default="voicerag_user")
+    password: str = Field(default="voicerag")
+    
+    model_config=SettingsConfigDict(
+        env_prefix="POSTGRES_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+
+class SarvamDocIntelConfig(BaseSettings):
+    """Sarvam Document Intelligence configuration"""
+    language: str = Field(default="en-IN", description="BCP-47 language code for document processing.")
+    output_format: str = Field(default="md", description="Output format: 'md' or 'html'.")
+
+    model_config = SettingsConfigDict(
+        env_prefix="SARVAM_DOC_INTEL_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+  
+# Initialize configurations    
+chunker_config = ChunkerConfig()
+llm_config = LLMConfig()
+embedding_config = EmbeddingConfig()
+qdrant_config = QdrantConfig()
+postgres_config = PostgresConfig()
+sarvam_di_config = SarvamDocIntelConfig()
+
+
+# Initialize models
+LLM_MODEL = ChatOpenAI(
+    model=llm_config.model,
+    streaming=llm_config.streaming,
+    openai_api_base=llm_config.openai_api_base,
+)
+
+
+EMBEDDING_MODEL = AsyncInferenceClient(
+    model=embedding_config.model,
+    provider=embedding_config.provider
+)
+
+# Export for backward compatibility
+CHUNKER_CHUNK_SIZE = chunker_config.chunk_size
+CHUNKER_CHUNK_OVERLAP = chunker_config.chunk_overlap
+EMBEDDING_DIMENSION = embedding_config.embedding_dim
+EMBEDDING_BATCH_SIZE = embedding_config.batch_size
+QDRANT_HOST=qdrant_config.host
+QDRANT_PORT=qdrant_config.port
+QDRANT_COLLECTION_NAME=qdrant_config.collection_name
+QDRANT_GRPC_PORT=qdrant_config.grpc_port
+QDRANT_PREFER_GRPC=qdrant_config.prefer_grpc
+QDRANT_TIMEOUT=qdrant_config.timeout
+POSTGRES_HOST=postgres_config.host
+POSTGRES_PORT=postgres_config.port
+POSTGRES_DB=postgres_config.db
+POSTGRES_USER=postgres_config.user
+POSTGRES_PASSWORD=postgres_config.password
+SARVAM_DOC_INTEL_LANGUAGE = sarvam_di_config.language
+SARVAM_DOC_INTEL_OUTPUT_FORMAT = sarvam_di_config.output_format

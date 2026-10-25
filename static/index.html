@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VoiceRAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2e;
+      --accent:    #5b7fff;
+      --accent-lo: #1a2550;
+      --text:      #e2e2f0;
+      --muted:     #52526a;
+      --danger:    #ff5f5f;
+      --success:   #4fffb0;
+      --hi-badge:  #ff9a3c;
+      --en-badge:  #5b7fff;
+      --radius:    14px;
+      --font:      'DM Sans', sans-serif;
+      --mono:      'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #222; border-radius: 99px; }
+
+    /* ════════════════════════════════════════════
+       SIDEBAR
+    ════════════════════════════════════════════ */
+    #sidebar {
+      width: 252px; min-width: 252px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header { padding: 18px 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+
+    .brand {
+      font-size: .95rem; font-weight: 600; letter-spacing: -.2px;
+      margin-bottom: 12px; color: var(--text);
+    }
+    .brand em { font-style: normal; color: var(--accent); }
+
+    #new-chat-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: var(--accent); border: none; border-radius: 10px;
+      padding: 8px 14px; font-size: .82rem; font-family: var(--font);
+      font-weight: 500; color: #fff; cursor: pointer; transition: opacity .15s;
+    }
+    #new-chat-btn:hover { opacity: .85; }
+    #new-chat-btn:disabled { background: var(--accent-lo); opacity: .5; cursor: not-allowed; }
+
+    #session-list { flex: 1; overflow-y: auto; padding: 6px; }
+
+    .session-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 9px; border-radius: 10px; cursor: pointer;
+      transition: background .12s; margin-bottom: 1px;
+    }
+    .session-item:hover { background: #16161f; }
+    .session-item.active { background: var(--accent-lo); }
+    .session-item .s-icon { font-size: .9rem; flex-shrink: 0; }
+    .session-item .s-info { flex: 1; overflow: hidden; }
+    .session-item .s-title { font-size: .8rem; color: #c0c0d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-item .s-date  { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+    .session-item .s-del {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: .78rem; padding: 2px 4px; border-radius: 4px;
+      opacity: 0; transition: opacity .12s, color .12s;
+    }
+    .session-item:hover .s-del { opacity: 1; }
+    .session-item .s-del:hover { color: var(--danger); }
+
+    /* docs section */
+    #docs-section { border-top: 1px solid var(--border); flex-shrink: 0; padding: 8px; }
+    #docs-section .docs-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 5px 7px; font-size: .68rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .8px;
+    }
+    .upload-btn {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 2px 7px; font-size: .7rem; font-family: var(--font);
+      color: var(--muted); cursor: pointer; transition: color .12s, border-color .12s;
+    }
+    .upload-btn:hover { color: var(--text); border-color: #555; }
+    .upload-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    .doc-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 7px; border-radius: 8px; font-size: .78rem; color: #a0a0bc;
+      transition: background .12s;
+    }
+    .doc-item:hover { background: #16161f; }
+    .doc-item .doc-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .doc-item .doc-del {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: .75rem; padding: 2px 4px; border-radius: 4px;
+      opacity: 0; transition: opacity .12s, color .12s;
+    }
+    .doc-item:hover .doc-del { opacity: 1; }
+    .doc-item .doc-del:hover { color: var(--danger); }
+    .doc-item .doc-spin {
+      width: 9px; height: 9px; border: 1.5px solid var(--accent);
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    #no-docs { padding: 5px 7px; font-size: .75rem; color: #333; font-style: italic; }
+
+    /* ════════════════════════════════════════════
+       MAIN AREA
+    ════════════════════════════════════════════ */
+    #chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 20px; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+    #session-title { font-size: .85rem; color: var(--muted); font-weight: 500; }
+
+    #main {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding: 0 20px 16px; overflow: hidden;
+    }
+
+    #chat-window {
+      width: 100%; max-width: 720px; flex: 1; overflow-y: auto;
+      padding: 24px 0 10px; display: flex; flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg { display: flex; align-items: flex-end; max-width: 82%; animation: fadeUp .18s ease; }
+    .msg.user   { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.bot    { align-self: flex-start; }
+    .msg.system { align-self: flex-start; max-width: 100%; }
+
+    .bubble {
+      padding: 9px 13px; border-radius: 18px;
+      line-height: 1.65; font-size: .9rem; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user   .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.bot    .bubble { background: #181824; color: #dcdcf0; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+    .msg.system .bubble {
+      background: transparent; color: var(--muted); font-size: .78rem;
+      border-radius: 8px; border: 1px solid var(--border); padding: 6px 10px;
+    }
+
+    .bubble.streaming::after {
+      content: '▍'; display: inline-block;
+      animation: blink .6s steps(1) infinite; margin-left: 2px;
+      color: var(--accent);
+    }
+
+    @keyframes blink   { 50% { opacity: 0; } }
+    @keyframes fadeUp  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+
+    .file-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+    .chip {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px; padding: 3px 9px; font-size: .74rem; color: #c0c0d8;
+    }
+
+    /* indexing banner */
+    #indexing-banner {
+      display: none; width: 100%; max-width: 720px;
+      background: var(--accent-lo); border: 1px solid var(--accent);
+      border-radius: var(--radius); padding: 9px 14px; margin-bottom: 8px;
+      font-size: .82rem; color: #8faaff; align-items: center; gap: 9px;
+    }
+    #indexing-banner.show { display: flex; }
+    #indexing-banner .spinner {
+      width: 13px; height: 13px; border: 2px solid var(--accent);
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+
+    /* preview bar */
+    #preview-bar {
+      width: 100%; max-width: 720px;
+      display: none; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px;
+    }
+    .preview-chip {
+      display: flex; align-items: center; gap: 5px;
+      background: #181824; border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 9px; font-size: .76rem; color: #b0b0c8;
+    }
+    .preview-chip button { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; line-height: 1; }
+    .preview-chip button:hover { color: var(--danger); }
+
+    /* input bar */
+    #input-bar {
+      width: 100%; max-width: 720px; background: #13131c;
+      border: 1px solid var(--border); border-radius: 22px;
+      display: flex; align-items: flex-end; padding: 7px 7px 7px 13px;
+      gap: 5px; transition: border-color .18s, opacity .18s;
+    }
+    #input-bar:focus-within { border-color: var(--accent); }
+    #input-bar.disabled { opacity: .4; pointer-events: none; }
+
+    #msg-input {
+      flex: 1; background: none; border: none; outline: none; color: var(--text);
+      font-size: .9rem; font-family: var(--font); resize: none;
+      min-height: 22px; max-height: 140px; line-height: 1.5;
+      padding: 4px 0; align-self: center;
+    }
+    #msg-input::placeholder { color: var(--muted); }
+
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 50%; background: none; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); transition: background .12s, color .12s; flex-shrink: 0;
+    }
+    .icon-btn:hover { background: #1e1e2e; color: #b0b0d0; }
+
+    #send-btn {
+      width: 34px; height: 34px; border-radius: 50%; background: var(--accent);
+      border: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; color: #fff; flex-shrink: 0;
+      transition: opacity .12s, transform .1s;
+    }
+    #send-btn:hover   { opacity: .85; }
+    #send-btn:active  { transform: scale(.9); }
+    #send-btn:disabled { background: #2a2a3a; cursor: default; }
+
+    /* voice button in input bar */
+    #voice-open-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: none; border: 1px solid var(--border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); flex-shrink: 0; transition: border-color .12s, color .12s, background .12s;
+    }
+    #voice-open-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lo); }
+    #voice-open-btn:disabled { opacity: .3; cursor: not-allowed; }
+    #voice-open-btn.indexing-lock { opacity: .3; cursor: not-allowed; pointer-events: none; }
+
+    #file-input { display: none; }
+
+    /* toast */
+    #toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: #1c1c28; border: 1px solid var(--border); border-radius: 10px;
+      padding: 7px 16px; font-size: .79rem; color: #b0b0c8;
+      opacity: 0; pointer-events: none; transition: opacity .22s;
+      white-space: nowrap; z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+
+    /* empty state */
+    #empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      color: #2a2a3e; font-size: .88rem; pointer-events: none; text-align: center;
+    }
+    #empty-state .e-icon { font-size: 2.2rem; }
+
+    /* ════════════════════════════════════════════
+       VOICE MODAL  (Gemini-style overlay)
+    ════════════════════════════════════════════ */
+    #voice-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(5,5,10,.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+    #voice-modal.open { display: flex; }
+
+    /* orb ring */
+    .vm-orb-wrap {
+      position: relative;
+      width: 180px; height: 180px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 36px;
+    }
+
+    /* Animated ring — always visible, pulses when listening */
+    .vm-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid transparent;
+      background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        conic-gradient(
+          var(--accent) 0%, #a78bfa 33%, #ec4899 66%, var(--accent) 100%
+        ) border-box;
+      opacity: .35;
+      animation: ring-spin 4s linear infinite;
+    }
+    .vm-ring.ring-2 {
+      inset: 10px;
+      animation: ring-spin 6s linear infinite reverse;
+      opacity: .2;
+    }
+    @keyframes ring-spin { to { transform: rotate(360deg); } }
+
+    /* When speaking, make rings glow + throb */
+    #voice-modal.listening .vm-ring   { opacity: .9; animation: ring-spin 1.5s linear infinite, ring-throb 1s ease-in-out infinite alternate; }
+    #voice-modal.listening .vm-ring.ring-2 { opacity: .6; animation: ring-spin 2.5s linear infinite reverse, ring-throb 1s ease-in-out infinite alternate; }
+    @keyframes ring-throb { from { transform: scale(1) rotate(0deg); } to { transform: scale(1.06) rotate(360deg); } }
+
+    /* When processing (RAG) */
+    #voice-modal.processing .vm-ring {
+      background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        conic-gradient(var(--success) 0%, #5b7fff 50%, var(--success) 100%) border-box;
+      opacity: .7;
+      animation: ring-spin 2s linear infinite;
+    }
+    #voice-modal.processing .vm-ring.ring-2 { opacity: .4; animation: ring-spin 3s linear infinite reverse; }
+
+    /* When playing TTS */
+    #voice-modal.speaking .vm-ring {
+      background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        conic-gradient(var(--hi-badge) 0%, var(--accent) 50%, var(--hi-badge) 100%) border-box;
+      opacity: .85;
+      animation: ring-spin 1s linear infinite, ring-throb 0.6s ease-in-out infinite alternate;
+    }
+
+    /* centre orb */
+    .vm-orb {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: radial-gradient(circle at 38% 36%, #1e2a5a 0%, #0d0d18 70%);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+      box-shadow: 0 0 40px rgba(91,127,255,.08);
+      transition: box-shadow .4s;
+    }
+    #voice-modal.listening .vm-orb  { box-shadow: 0 0 60px rgba(91,127,255,.25); }
+    #voice-modal.speaking  .vm-orb  { box-shadow: 0 0 60px rgba(255,154,60,.2); }
+    #voice-modal.processing .vm-orb { box-shadow: 0 0 60px rgba(79,255,176,.15); }
+
+    /* waveform bars inside orb */
+    .vm-bars {
+      display: flex; align-items: center; gap: 3px; height: 32px;
+    }
+    .vm-bar {
+      width: 3px; border-radius: 99px;
+      background: var(--accent); opacity: .5;
+      height: 6px;
+      transition: height .1s ease, opacity .2s;
+    }
+    #voice-modal.listening .vm-bar {
+      opacity: 1;
+      animation: bar-dance var(--d, .8s) ease-in-out infinite alternate;
+    }
+    #voice-modal.speaking .vm-bar {
+      background: var(--hi-badge); opacity: .9;
+      animation: bar-dance var(--d, .5s) ease-in-out infinite alternate;
+    }
+    #voice-modal.processing .vm-bar {
+      background: var(--success); opacity: .7;
+      animation: bar-dance var(--d, 1.2s) ease-in-out infinite alternate;
+    }
+    @keyframes bar-dance {
+      from { height: 4px; }
+      to   { height: 28px; }
+    }
+
+    /* status label */
+    .vm-status {
+      font-size: .78rem; font-weight: 500; letter-spacing: .5px;
+      color: var(--muted); text-transform: uppercase;
+      margin-bottom: 16px; min-height: 1em;
+      transition: color .3s;
+    }
+    #voice-modal.listening  .vm-status { color: var(--accent); }
+    #voice-modal.speaking   .vm-status { color: var(--hi-badge); }
+    #voice-modal.processing .vm-status { color: var(--success); }
+
+    /* language badge */
+    .vm-lang {
+      font-size: .72rem; font-family: var(--mono); font-weight: 500;
+      padding: 2px 9px; border-radius: 99px; border: 1px solid var(--border);
+      color: var(--muted); margin-bottom: 28px;
+      transition: border-color .3s, color .3s;
+    }
+    .vm-lang.hi { border-color: var(--hi-badge); color: var(--hi-badge); }
+    .vm-lang.en { border-color: var(--en-badge); color: var(--en-badge); }
+
+    /* transcript area */
+    .vm-transcript-wrap {
+      width: 100%; max-width: 520px; min-height: 56px;
+      display: flex; flex-direction: column; gap: 6px;
+      margin-bottom: 40px; padding: 0 20px;
+    }
+    .vm-user-text {
+      font-size: 1.05rem; font-weight: 400; color: var(--text);
+      text-align: center; line-height: 1.6; min-height: 1.6em;
+      transition: opacity .3s;
+    }
+    .vm-bot-text {
+      font-size: .88rem; color: var(--muted); text-align: center;
+      line-height: 1.6; min-height: 1.4em;
+      font-style: italic;
+    }
+    .vm-bot-text.streaming::after {
+      content: '▍'; display: inline-block;
+      animation: blink .6s steps(1) infinite; margin-left: 2px;
+      color: var(--accent);
+    }
+
+    /* stop / close button */
+    .vm-stop-btn {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #1c1c28; border: 1px solid var(--border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); transition: background .12s, border-color .12s, color .12s;
+    }
+    .vm-stop-btn:hover { background: #28182a; border-color: var(--danger); color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <div class="brand">Voice<em>RAG</em></div>
+    <button id="new-chat-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      New Chat
+    </button>
+  </div>
+  <div id="session-list"></div>
+  <div id="docs-section">
+    <div class="docs-hdr">
+      <span>Documents</span>
+      <button class="upload-btn" id="sidebar-upload-btn"
+              onclick="document.getElementById('file-input').click()">+ Upload</button>
+    </div>
+    <div id="doc-list"><div id="no-docs">No documents uploaded yet.</div></div>
+  </div>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div id="chat-area">
+  <div id="top-bar">
+    <span id="session-title">New Chat</span>
+  </div>
+  <div id="main">
+    <div id="chat-window"></div>
+
+    <div id="indexing-banner">
+      <div class="spinner"></div>
+      <span id="indexing-msg">📄 Reading documents… please wait.</span>
+    </div>
+
+    <div id="preview-bar"></div>
+
+    <div id="input-bar">
+      <!-- attach -->
+      <button class="icon-btn" id="attach-btn" title="Attach PDF"
+              onclick="document.getElementById('file-input').click()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41A2 2 0 0 1 6.59 14.59l8.49-8.48"/>
+        </svg>
+      </button>
+      <input type="file" id="file-input" multiple accept=".pdf" />
+
+      <textarea id="msg-input" rows="1" placeholder="Message…"></textarea>
+
+      <!-- voice open button -->
+      <button id="voice-open-btn" title="Voice conversation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8"  y1="22" x2="16" y2="22"/>
+        </svg>
+      </button>
+
+      <button id="send-btn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════ VOICE MODAL ═══════ -->
+<div id="voice-modal">
+  <div class="vm-orb-wrap">
+    <div class="vm-ring"></div>
+    <div class="vm-ring ring-2"></div>
+    <div class="vm-orb">
+      <div class="vm-bars" id="vm-bars"></div>
+    </div>
+  </div>
+
+  <div class="vm-status" id="vm-status">Initialising…</div>
+  <div class="vm-lang"   id="vm-lang">—</div>
+
+  <div class="vm-transcript-wrap">
+    <div class="vm-user-text" id="vm-user-text"></div>
+    <div class="vm-bot-text"  id="vm-bot-text"></div>
+  </div>
+
+  <button class="vm-stop-btn" id="vm-stop-btn" title="End conversation">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6"  y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  IDENTITY
+// ═══════════════════════════════════════════════════════════
+function generateId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function getOrCreate(key, gen) {
+  let v = localStorage.getItem(key);
+  if (!v) { v = gen(); localStorage.setItem(key, v); }
+  return v;
+}
+
+const userId    = getOrCreate('voicerag_user_id', generateId);
+let   sessionId = generateId();
+
+// ═══════════════════════════════════════════════════════════
+//  SESSION STORE
+// ═══════════════════════════════════════════════════════════
+const getSessions   = ()  => JSON.parse(localStorage.getItem('voicerag_sessions') || '[]');
+const saveSessions  = (s) => localStorage.setItem('voicerag_sessions', JSON.stringify(s));
+const getCurrentSession = () => getSessions().find(s => s.id === sessionId);
+
+function upsertSession(patch) {
+  const sessions = getSessions();
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) sessions.unshift({ id: sessionId, title: 'New Chat', createdAt: Date.now(), messages: [], docs: [], ...patch });
+  else sessions[idx] = { ...sessions[idx], ...patch };
+  saveSessions(sessions);
+}
+function deleteSession(sid) { saveSessions(getSessions().filter(s => s.id !== sid)); }
+
+// ═══════════════════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════════════════
+const chatWindow     = document.getElementById('chat-window');
+const msgInput       = document.getElementById('msg-input');
+const fileInput      = document.getElementById('file-input');
+const previewBar     = document.getElementById('preview-bar');
+const sendBtn        = document.getElementById('send-btn');
+const newChatBtn     = document.getElementById('new-chat-btn');
+const toast          = document.getElementById('toast');
+const inputBar       = document.getElementById('input-bar');
+const indexingBanner = document.getElementById('indexing-banner');
+const indexingMsg    = document.getElementById('indexing-msg');
+const sessionList    = document.getElementById('session-list');
+const docList        = document.getElementById('doc-list');
+const sessionTitle   = document.getElementById('session-title');
+const sidebarUpload  = document.getElementById('sidebar-upload-btn');
+const voiceOpenBtn   = document.getElementById('voice-open-btn');
+const voiceModal     = document.getElementById('voice-modal');
+const vmStatus       = document.getElementById('vm-status');
+const vmLang         = document.getElementById('vm-lang');
+const vmUserText     = document.getElementById('vm-user-text');
+const vmBotText      = document.getElementById('vm-bot-text');
+const vmStopBtn      = document.getElementById('vm-stop-btn');
+const vmBarsEl       = document.getElementById('vm-bars');
+
+let selectedFiles = [];
+let isStreaming   = false;
+let isIndexing    = false;
+let pollTimer     = null;
+
+// Build waveform bars
+(function buildBars() {
+  const delays = [.9, .6, .4, .7, .5, .8, .45, .65, .55, .75];
+  delays.forEach(d => {
+    const b = document.createElement('div');
+    b.className = 'vm-bar';
+    b.style.setProperty('--d', d + 's');
+    vmBarsEl.appendChild(b);
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  upsertSession({});
+  renderSidebar(); renderDocList(); renderChatWindow(); updateSessionTitle();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════════════════════
+function renderSidebar() {
+  sessionList.innerHTML = '';
+  const sessions = getSessions();
+  if (!sessions.length) {
+    sessionList.innerHTML = '<div style="padding:10px 8px;font-size:.74rem;color:#333;">No sessions yet.</div>';
+    return;
+  }
+  sessions.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'session-item' + (s.id === sessionId ? ' active' : '');
+    el.innerHTML = `
+      <span class="s-icon">💬</span>
+      <div class="s-info">
+        <div class="s-title">${escHtml(s.title)}</div>
+        <div class="s-date">${fmtDate(s.createdAt)}</div>
+      </div>
+      <button class="s-del" title="Delete" onclick="handleDeleteSession(event,'${s.id}')">✕</button>`;
+    el.addEventListener('click', () => switchSession(s.id));
+    sessionList.appendChild(el);
+  });
+}
+
+function switchSession(sid) {
+  if (sid === sessionId) return;
+  if (isIndexing) { showToast('⏳ Wait for indexing to finish.'); return; }
+  sessionId = sid;
+  renderSidebar(); renderDocList(); renderChatWindow(); updateSessionTitle();
+}
+
+function handleDeleteSession(e, sid) {
+  e.stopPropagation();
+  deleteSession(sid);
+  if (sid === sessionId) startNewChat(); else renderSidebar();
+}
+
+function updateSessionTitle() {
+  const s = getCurrentSession();
+  sessionTitle.textContent = s ? s.title : 'New Chat';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHAT WINDOW
+// ═══════════════════════════════════════════════════════════
+function renderChatWindow() {
+  chatWindow.innerHTML = '';
+  const s = getCurrentSession();
+  const msgs = s ? s.messages : [];
+  if (!msgs.length) {
+    chatWindow.innerHTML = `<div id="empty-state"><div class="e-icon">🎙️</div><div>Upload a document or tap the mic to begin.</div></div>`;
+    return;
+  }
+  msgs.forEach(m => {
+    const wrap = document.createElement('div'); wrap.className = `msg ${m.role}`;
+    wrap.innerHTML = `<div class="bubble">${m.role === 'user' ? escHtml(m.content) : m.content}</div>`;
+    chatWindow.appendChild(wrap);
+  });
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function persistMessage(role, content) {
+  const s = getCurrentSession() || { messages: [] };
+  s.messages.push({ role, content });
+  if (role === 'user' && s.messages.filter(m => m.role === 'user').length === 1)
+    s.title = content.slice(0, 40) + (content.length > 40 ? '…' : '');
+  upsertSession({ messages: s.messages, title: s.title });
+  updateSessionTitle(); renderSidebar();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DOC LIST
+// ═══════════════════════════════════════════════════════════
+function renderDocList() {
+  const s = getCurrentSession();
+  const docs = s ? (s.docs || []) : [];
+  docList.innerHTML = '';
+  if (!docs.length) { docList.innerHTML = '<div id="no-docs">No documents uploaded yet.</div>'; return; }
+  docs.forEach(d => {
+    const el = document.createElement('div'); el.className = 'doc-item'; el.id = `doc-${d.doc_id}`;
+    el.innerHTML = `
+      <span>📄</span>
+      <span class="doc-name" title="${escHtml(d.filename)}">${trunc(d.filename, 22)}</span>
+      ${d.status === 'indexing'
+        ? '<div class="doc-spin"></div>'
+        : `<button class="doc-del" onclick="handleDeleteDoc(event,'${d.doc_id}')">✕</button>`}`;
+    docList.appendChild(el);
+  });
+}
+
+function addDocToSession(doc) {
+  const s = getCurrentSession() || { docs: [] };
+  (s.docs = s.docs || []).push(doc);
+  upsertSession({ docs: s.docs }); renderDocList();
+}
+
+function updateDocStatus(doc_id, status) {
+  const s = getCurrentSession(); if (!s) return;
+  upsertSession({ docs: (s.docs||[]).map(d => d.doc_id===doc_id ? {...d,status} : d) });
+  renderDocList();
+}
+
+function removeDocFromSession(doc_id) {
+  const s = getCurrentSession(); if (!s) return;
+  upsertSession({ docs: (s.docs||[]).filter(d => d.doc_id!==doc_id) });
+  renderDocList();
+}
+
+async function handleDeleteDoc(e, doc_id) {
+  e.stopPropagation();
+  if (!confirm('Delete this document?')) return;
+  try {
+    const res = await fetch(`/api/v1/document/${doc_id}?user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (res.ok) { removeDocFromSession(doc_id); showToast('🗑 Deleted.'); }
+    else { const d = await res.json().catch(()=>({})); showToast(`❌ ${d.detail||'Delete failed.'}`); }
+  } catch (err) { showToast(`❌ ${err.message}`); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INDEXING STATE
+// ═══════════════════════════════════════════════════════════
+function setIndexing(state) {
+  isIndexing = state;
+  inputBar.classList.toggle('disabled', state);
+  indexingBanner.classList.toggle('show', state);
+  newChatBtn.disabled = state;
+  sidebarUpload.disabled = state;
+  // Lock voice button while indexing
+  voiceOpenBtn.classList.toggle('indexing-lock', state);
+  voiceOpenBtn.title = state ? 'Wait for indexing to finish' : 'Voice conversation';
+  toggleSend();
+}
+
+function pollIndexStatus(jobId) {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const res  = await fetch(`/api/v1/index-status/${jobId}`);
+      const data = await res.json();
+      if (data.status === 'done') {
+        clearInterval(pollTimer); setIndexing(false);
+        (data.docs||[]).forEach(d => updateDocStatus(d.doc_id, 'ready'));
+        appendSystemMsg('✅ Documents ready! Ask anything about them.');
+        showToast('✅ Documents indexed!');
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer); setIndexing(false);
+        appendSystemMsg(`❌ Indexing failed: ${data.detail}`);
+        showToast('❌ Indexing failed.');
+      }
+    } catch (err) {
+      clearInterval(pollTimer); setIndexing(false);
+      appendSystemMsg(`❌ Could not check indexing: ${err.message}`);
+    }
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NEW CHAT
+// ═══════════════════════════════════════════════════════════
+function startNewChat() {
+  sessionId = generateId(); upsertSession({});
+  renderSidebar(); renderDocList(); renderChatWindow(); updateSessionTitle();
+  selectedFiles = []; renderPreview(); toggleSend();
+}
+newChatBtn.addEventListener('click', () => {
+  if (isIndexing) { showToast('⏳ Wait for indexing to finish.'); return; }
+  startNewChat();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  TEXT INPUT
+// ═══════════════════════════════════════════════════════════
+msgInput.addEventListener('input', () => {
+  msgInput.style.height = 'auto';
+  msgInput.style.height = msgInput.scrollHeight + 'px';
+  toggleSend();
+});
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); trySend(); }
+});
+
+const MAX_FILES = 3, MAX_SIZE = 50 * 1024 * 1024;
+fileInput.addEventListener('change', () => {
+  const incoming = Array.from(fileInput.files), errors = [], valid = [];
+  for (const f of incoming) {
+    if (selectedFiles.length + valid.length >= MAX_FILES) { errors.push(`Max ${MAX_FILES} files.`); break; }
+    if (f.size > MAX_SIZE)                         { errors.push(`"${f.name}" exceeds 50 MB.`); continue; }
+    if (!f.name.toLowerCase().endsWith('.pdf'))    { errors.push(`"${f.name}" is not a PDF.`); continue; }
+    valid.push(f);
+  }
+  if (errors.length) showToast(errors[0]);
+  selectedFiles.push(...valid); fileInput.value = ''; renderPreview(); toggleSend();
+});
+
+function renderPreview() {
+  previewBar.innerHTML = '';
+  previewBar.style.display = selectedFiles.length ? 'flex' : 'none';
+  selectedFiles.forEach((f, i) => {
+    const chip = document.createElement('div'); chip.className = 'preview-chip';
+    chip.innerHTML = `📄 <span>${trunc(f.name,22)}</span><button onclick="removeFile(${i})">✕</button>`;
+    previewBar.appendChild(chip);
+  });
+}
+function removeFile(i) { selectedFiles.splice(i,1); renderPreview(); toggleSend(); }
+function toggleSend() {
+  sendBtn.disabled = isStreaming || isIndexing || !(msgInput.value.trim() || selectedFiles.length);
+}
+sendBtn.addEventListener('click', trySend);
+
+async function trySend() {
+  if (isStreaming || isIndexing) return;
+  const text = msgInput.value.trim(), files = [...selectedFiles];
+  if (!text && !files.length) return;
+  document.getElementById('empty-state')?.remove();
+  msgInput.value = ''; msgInput.style.height = 'auto';
+  selectedFiles = []; renderPreview(); toggleSend();
+  if (files.length) {
+    appendUserMsg(text, files.map(f=>f.name));
+    await uploadFiles(files);
+    if (text) showToast('💬 Ask your question once indexing completes.');
+  } else {
+    appendUserMsg(text); persistMessage('user', text); await sendQuery(text);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════════════════
+async function uploadFiles(files) {
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f));
+  fd.append('user_id', userId); fd.append('session_id', sessionId);
+  files.forEach(f => addDocToSession({ doc_id:'pending_'+generateId(), filename:f.name, status:'indexing' }));
+  try {
+    const res  = await fetch('/api/v1/upload', { method:'POST', body:fd });
+    const data = await res.json();
+    if (!res.ok) { appendSystemMsg(`❌ ${data.detail||'Upload failed.'}`); return; }
+    setIndexing(true);
+    indexingMsg.textContent = `📄 Reading ${files.length > 1 ? files.length+' documents' : '"'+files[0].name+'"'}… please wait.`;
+    pollIndexStatus(data.job_id);
+  } catch (err) { appendSystemMsg(`❌ Network error: ${err.message}`); setIndexing(false); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STREAMING TEXT QUERY
+// ═══════════════════════════════════════════════════════════
+async function sendQuery(text) {
+  isStreaming = true; toggleSend();
+  const botWrap = document.createElement('div'); botWrap.className = 'msg bot';
+  const botBubble = document.createElement('div'); botBubble.className = 'bubble streaming';
+  botWrap.appendChild(botBubble); chatWindow.appendChild(botWrap);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  let full = '';
+  try {
+    const res = await fetch('/api/v1/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ query:text, user_id:userId, session_id:sessionId, top_k:5 })
+    });
+    if (!res.ok) { const e=await res.json().catch(()=>({})); botBubble.textContent=`❌ ${e.detail||'Error.'}`; botBubble.classList.remove('streaming'); return; }
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    while (true) {
+      const {done,value}=await reader.read(); if(done) break;
+      const tok=dec.decode(value,{stream:true}); full+=tok; botBubble.textContent+=tok;
+      chatWindow.scrollTop=chatWindow.scrollHeight;
+    }
+    persistMessage('bot', escHtml(full));
+  } catch(err) { botBubble.textContent=`❌ ${err.message}`; }
+  finally { botBubble.classList.remove('streaming'); isStreaming=false; toggleSend(); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ════════════════════════════════════════════════════════
+//  REAL-TIME VOICE PIPELINE
+//  ════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+
+let voiceWS        = null;   // WebSocket to /ws/voice
+let audioCtx       = null;   // AudioContext for capture + playback
+let micStream      = null;   // MediaStream from getUserMedia
+let workletNode    = null;   // AudioWorkletNode for PCM capture
+let mediaSource    = null;   // MediaSource for TTS MP3 playback
+let sourceBuffer   = null;   // SourceBuffer
+let audioEl        = null;   // <audio> element
+let mp3Queue       = [];     // buffered MP3 chunks before sourceBuffer ready
+let isVoiceOpen    = false;
+let currentLang    = 'en-IN';
+let ragTokenBuffer = '';     // accumulate tokens for chat history
+
+// AudioWorklet processor code — injected as a Blob URL
+// The worklet receives the actual AudioContext sampleRate via processorOptions
+// so it can resample to exactly 16000 Hz before sending.
+// Root-cause fix: the OS may silently ignore AudioContext({ sampleRate:16000 })
+// and give 44100/48000 Hz — Sarvam VAD sees fast-forwarded noise and fires nothing.
+const WORKLET_CODE = `
+class PCMCaptureProcessor extends AudioWorkletProcessor {
+  constructor(options) {
+    super(options);
+    const opts = (options && options.processorOptions) || {};
+    this._inputRate  = opts.contextSampleRate || 16000;
+    this._targetRate = 16000;
+    this._ratio      = this._inputRate / this._targetRate;
+    this._remainder  = 0;
+  }
+
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch || !ch.length) return true;
+
+    if (this._inputRate === this._targetRate) {
+      // Fast path — no resampling needed
+      const buf = new Int16Array(ch.length);
+      for (let i = 0; i < ch.length; i++) {
+        const s = Math.max(-1, Math.min(1, ch[i]));
+        buf[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      this.port.postMessage(buf.buffer, [buf.buffer]);
+      return true;
+    }
+
+    // Linear interpolation downsample inputRate → 16000 Hz
+    const outLen = Math.floor((ch.length - this._remainder) / this._ratio);
+    if (outLen <= 0) { this._remainder -= ch.length; return true; }
+
+    const out = new Int16Array(outLen);
+    let pos = this._remainder;
+    for (let i = 0; i < outLen; i++) {
+      const idx  = Math.floor(pos);
+      const frac = pos - idx;
+      const a    = ch[idx]     !== undefined ? ch[idx]     : 0;
+      const b    = ch[idx + 1] !== undefined ? ch[idx + 1] : a;
+      const s    = Math.max(-1, Math.min(1, a + frac * (b - a)));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      pos += this._ratio;
+    }
+    this._remainder = pos - ch.length;
+    this.port.postMessage(out.buffer, [out.buffer]);
+    return true;
+  }
+}
+registerProcessor('pcm-capture', PCMCaptureProcessor);
+`;
+
+function setVoiceModalState(state) {
+  // state: 'idle' | 'listening' | 'processing' | 'speaking'
+  voiceModal.classList.remove('listening','processing','speaking');
+  if (state !== 'idle') voiceModal.classList.add(state);
+  const labels = { idle:'Ready', listening:'Listening…', processing:'Thinking…', speaking:'Speaking…' };
+  vmStatus.textContent = labels[state] || '';
+}
+
+function setLangBadge(lang) {
+  currentLang = lang;
+  vmLang.className = 'vm-lang';
+  if (lang === 'hi-IN') { vmLang.textContent = 'हिन्दी'; vmLang.classList.add('hi'); }
+  else                  { vmLang.textContent = 'English'; vmLang.classList.add('en'); }
+}
+
+// ── TTS audio playback via MediaSource ───────────────────────────────────────
+function initAudioPlayback() {
+  // Clean up previous
+  if (audioEl) { audioEl.pause(); audioEl.remove(); }
+  audioEl = document.createElement('audio');
+  audioEl.autoplay = true;
+  document.body.appendChild(audioEl);
+
+  mediaSource  = new MediaSource();
+  mp3Queue     = [];
+  sourceBuffer = null;
+  audioEl.src  = URL.createObjectURL(mediaSource);
+
+  mediaSource.addEventListener('sourceopen', () => {
+    try {
+      sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+      sourceBuffer.mode = 'sequence';
+      sourceBuffer.addEventListener('updateend', flushMp3Queue);
+      flushMp3Queue();
+    } catch(e) { console.warn('[TTS] SourceBuffer error:', e); }
+  });
+}
+
+function flushMp3Queue() {
+  if (!sourceBuffer || sourceBuffer.updating || mp3Queue.length === 0) return;
+  const chunk = mp3Queue.shift();
+  try { sourceBuffer.appendBuffer(chunk); }
+  catch(e) { console.warn('[TTS] appendBuffer error:', e); }
+}
+
+function feedMp3Chunk(arrayBuffer) {
+  mp3Queue.push(arrayBuffer);
+  flushMp3Queue();
+}
+
+function stopAudioPlayback() {
+  if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+  mp3Queue = [];
+  // Don't destroy mediaSource — too complex to re-init mid-session;
+  // just drain the queue and let silence play.
+}
+
+// ── Open voice modal ─────────────────────────────────────────────────────────
+voiceOpenBtn.addEventListener('click', openVoiceModal);
+
+async function openVoiceModal() {
+  if (isIndexing) { showToast('⏳ Wait for indexing to finish.'); return; }
+  if (isVoiceOpen) return;
+  isVoiceOpen = true;
+
+  // Reset UI
+  voiceModal.classList.add('open');
+  vmUserText.textContent = '';
+  vmBotText.textContent  = '';
+  vmBotText.classList.remove('streaming');
+  setVoiceModalState('idle');
+  setLangBadge('en-IN');
+  ragTokenBuffer = '';
+
+  // 1. Mic permission
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+  } catch(err) {
+    showToast('❌ Microphone access denied.'); closeVoiceModal(); return;
+  }
+
+  // 2. Pre-load AudioWorklet module now (while still in user gesture context),
+  //    but do NOT connect the mic yet — that happens inside voiceWS.onopen
+  //    so we're guaranteed the WebSocket is OPEN before any PCM is sent.
+  audioCtx = new AudioContext({ sampleRate: 16000 });
+  const actualRate = audioCtx.sampleRate;
+  console.log(`[Voice] AudioContext granted sampleRate=${actualRate}Hz`);
+
+  // Chrome suspends AudioContext if not resumed inside a user gesture.
+  // We're still inside the click handler here so resume() will succeed.
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+    console.log('[Voice] AudioContext resumed.');
+  }
+
+  const blobUrl = URL.createObjectURL(new Blob([WORKLET_CODE], { type:'application/javascript' }));
+  try {
+    await audioCtx.audioWorklet.addModule(blobUrl);
+    console.log('[Voice] AudioWorklet module loaded.');
+  } catch(err) {
+    showToast('❌ AudioWorklet failed: ' + err.message); closeVoiceModal(); return;
+  }
+
+  // 3. TTS playback
+  initAudioPlayback();
+
+  // 4. WebSocket — open it first, then start mic capture inside onopen.
+  //    This eliminates the race condition where the worklet fires frames
+  //    before voiceWS exists and they get silently dropped.
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${proto}://${location.host}/ws/voice?user_id=${encodeURIComponent(userId)}&session_id=${encodeURIComponent(sessionId)}`;
+  voiceWS = new WebSocket(wsUrl);
+  voiceWS.binaryType = 'arraybuffer';
+
+  voiceWS.onopen = async () => {
+    console.log('[Voice] WebSocket open — starting mic capture.');
+    vmStatus.textContent = 'Connecting…';
+
+    // Ensure AudioContext is still running (browser may suspend between
+    // addModule() and onopen firing)
+    if (audioCtx && audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    // Connect mic → worklet → destination NOW that WS is confirmed open
+    const source = audioCtx.createMediaStreamSource(micStream);
+    workletNode  = new AudioWorkletNode(audioCtx, 'pcm-capture', {
+      processorOptions: { contextSampleRate: actualRate }
+    });
+
+    let framesSent = 0;
+    workletNode.port.onmessage = (e) => {
+      if (voiceWS && voiceWS.readyState === WebSocket.OPEN) {
+        voiceWS.send(e.data);
+        framesSent++;
+        if (framesSent === 1)   console.log('[Voice] First PCM frame sent to server ✓');
+        if (framesSent === 100) console.log('[Voice] 100 PCM frames sent — audio flowing ✓');
+      }
+    };
+
+    source.connect(workletNode);
+    workletNode.connect(audioCtx.destination); // required for worklet to run
+    console.log('[Voice] Mic → worklet → destination connected.');
+  };
+
+  voiceWS.onmessage = (e) => {
+    // Binary = MP3 audio chunk from TTS
+    if (e.data instanceof ArrayBuffer) {
+      feedMp3Chunk(e.data);
+      return;
+    }
+
+    // Text = JSON control frame
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    switch (msg.type) {
+
+      case 'ready':
+        setVoiceModalState('listening');
+        break;
+
+      case 'listening':
+        setVoiceModalState('listening');
+        vmBotText.classList.remove('streaming');
+        break;
+
+      case 'speech_end':
+        // VAD detected silence — show brief "processing" before transcript arrives
+        vmStatus.textContent = 'Processing…';
+        break;
+
+      case 'transcript':
+        vmUserText.textContent = msg.text;
+        setLangBadge(msg.language_code || currentLang);
+        // Also persist to chat window
+        appendUserMsg(msg.text);
+        persistMessage('user', msg.text);
+        ragTokenBuffer = '';
+        vmBotText.textContent = '';
+        vmBotText.classList.remove('streaming');
+        break;
+
+      case 'barge_in':
+        stopAudioPlayback();
+        initAudioPlayback();   // fresh buffer
+        setVoiceModalState('listening');
+        vmBotText.classList.remove('streaming');
+        // Persist whatever was collected before barge-in
+        if (ragTokenBuffer.trim()) {
+          persistMessage('bot', escHtml(ragTokenBuffer));
+          appendBotMsg(ragTokenBuffer);
+        }
+        ragTokenBuffer = '';
+        vmBotText.textContent = '';
+        break;
+
+      case 'rag_start':
+        setVoiceModalState('processing');
+        vmBotText.classList.add('streaming');
+        break;
+
+      case 'token':
+        ragTokenBuffer += msg.text;
+        vmBotText.textContent = ragTokenBuffer;
+        break;
+
+      case 'rag_done':
+        vmBotText.classList.remove('streaming');
+        break;
+
+      case 'tts_start':
+        setVoiceModalState('speaking');
+        setLangBadge(msg.language_code || currentLang);
+        break;
+
+      case 'tts_done':
+        // Persist full response to chat after TTS completes
+        if (ragTokenBuffer.trim()) {
+          appendBotMsg(ragTokenBuffer);
+          persistMessage('bot', escHtml(ragTokenBuffer));
+          ragTokenBuffer = '';
+        }
+        vmBotText.classList.remove('streaming');
+        // Go back to listening
+        setVoiceModalState('listening');
+        break;
+
+      case 'error':
+        showToast(`❌ ${msg.message}`);
+        setVoiceModalState('idle');
+        break;
+    }
+  };
+
+  voiceWS.onerror = () => { showToast('❌ Voice connection error.'); closeVoiceModal(); };
+  voiceWS.onclose = () => { if (isVoiceOpen) closeVoiceModal(); };
+}
+
+// ── Close voice modal ─────────────────────────────────────────────────────────
+vmStopBtn.addEventListener('click', closeVoiceModal);
+
+function closeVoiceModal() {
+  isVoiceOpen = false;
+  voiceModal.classList.remove('open','listening','processing','speaking');
+
+  // Send stop signal
+  if (voiceWS && voiceWS.readyState === WebSocket.OPEN) {
+    voiceWS.send(JSON.stringify({ type:'stop' }));
+    voiceWS.close();
+  }
+  voiceWS = null;
+
+  // Stop mic
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+
+  // Disconnect worklet
+  if (workletNode) { workletNode.disconnect(); workletNode = null; }
+
+  // Close audio context
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+
+  // Stop playback
+  stopAudioPlayback();
+  if (audioEl) { audioEl.src = ''; audioEl.remove(); audioEl = null; }
+
+  // Persist leftover tokens if any
+  if (ragTokenBuffer.trim()) {
+    appendBotMsg(ragTokenBuffer);
+    persistMessage('bot', escHtml(ragTokenBuffer));
+    ragTokenBuffer = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+function appendUserMsg(text, fileNames=[]) {
+  document.getElementById('empty-state')?.remove();
+  const wrap = document.createElement('div'); wrap.className = 'msg user';
+  let html = text ? `<span>${escHtml(text)}</span>` : '';
+  if (fileNames.length)
+    html += `<div class="file-chips">${fileNames.map(n=>`<span class="chip">📄 ${trunc(n,24)}</span>`).join('')}</div>`;
+  wrap.innerHTML = `<div class="bubble">${html}</div>`;
+  chatWindow.appendChild(wrap); chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function appendBotMsg(text) {
+  document.getElementById('empty-state')?.remove();
+  const wrap = document.createElement('div'); wrap.className = 'msg bot';
+  wrap.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
+  chatWindow.appendChild(wrap); chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function appendSystemMsg(text) {
+  const wrap = document.createElement('div'); wrap.className = 'msg system';
+  wrap.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
+  chatWindow.appendChild(wrap); chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function trunc(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})
+       + ' ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+
+let _toastTimer;
+function showToast(msg) {
+  toast.textContent = msg; toast.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
